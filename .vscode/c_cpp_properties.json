@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/librtsp/",
+                "${workspaceFolder}/librknn_api/include/",
+                "${workspaceFolder}/librknn_api/3rdparty/opencv/opencv-linux-armhf/include/",
+                "/opt/atk-dlrv1126-toolchain/usr/include"
+            ],
+            "defines": [],
+            "compilerPath": "/opt/atk-dlrv1126-toolchain/usr/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-clang-arm"
+        }
+    ],
+    "version": 4
+}
