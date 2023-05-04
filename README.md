@@ -1,23 +1,17 @@
 ## build
-
-modify `GCC_COMPILER` on `build.sh` for target platform, then execute
-
-```
-./build.sh
-```
+cmake -S . -B build
+cmake --build build
 
 ## install
 
-connect device and push build output into `/`
-
-```
-adb push install/rknn_ocr /
-```
+无需安装
 
 ## run
 
-```
-adb shell
-cd /rknn_ocr/
-./rknn_ocr model/det_new.rknn model/repvgg_s.rknn model/dict_text.txt model/1.png
+adb push 到板子上
+在板子上运行
+./rknn_ocr model/det_new.rknn model/repvgg_s.rknn model/dict_text.txt
+
+模型文件, 字典文件路径都根据实际调整一下.
+
 ```
