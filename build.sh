@@ -25,5 +25,4 @@ cmake .. \
     -DCMAKE_C_COMPILER=${GCC_COMPILER}-gcc \
     -DCMAKE_CXX_COMPILER=${GCC_COMPILER}-g++
 make -j4
-make install
 cd -

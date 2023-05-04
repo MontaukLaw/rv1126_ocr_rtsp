@@ -1,9 +1,6 @@
-# @author        Liang Huanyan
-# @email         lianghuanyan@alientek.com
-# http://www.openedv.com/forum.php
-
 cmake_minimum_required(VERSION 3.8)
 message(STATUS "cmake version ${CMAKE_VERSION}")
+project(rknn_ocr_rtsp)
 
 set(TOOLCHAIN_DIR /opt/atk-dlrv1126-toolchain)
 set(CMAKE_CXX_COMPILER ${TOOLCHAIN_DIR}/usr/bin/arm-linux-gnueabihf-g++)
@@ -19,6 +16,7 @@ set(OPENCV_LIBS opencv_core opencv_imgcodecs opencv_imgproc opencv_features2d op
 set(RKNN_LIBS easymedia rga rkaiq rknn_api sample_common_isp)
 link_directories(include lib)
 link_directories(include ./librtsp)
+message(STATUS "OPENCV_LIBS ${OPENCV_LIBS}")
 	
 include_directories(${SYSROOT})
 include_directories(${SYSROOT}/rga)
@@ -34,7 +32,6 @@ include_directories(./include)
 include_directories(./librknn_api/3rdparty)
 include_directories(./librknn_api/include)
 include_directories(./librtsp)
-
 
 add_definitions(-DRKAIQ)
 
