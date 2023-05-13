@@ -2,5 +2,6 @@
 #define __DETECT_SERVICE_H_
 
 // void detect();
-void detect_process(Mat imgRGB);
+// void detect_process(Mat imgRGB);
+void detect_process();
 #endif

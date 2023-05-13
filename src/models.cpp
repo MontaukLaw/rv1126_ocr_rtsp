@@ -25,17 +25,17 @@
 DBNet dbNet;
 CRNN crnn;
 
-extern char *det_model_path = nullptr;
-extern char *reg_model_path = nullptr;
-extern char *keys_path = nullptr;
+extern char *mjpg_det_model_path;
+extern char *mjpg_reg_model_path;
+extern char *mjpg_keys_path;
 
 void init_models()
 {
 
     printf("==> rkmedia_vi_ocr_thread\n");
 
-    int retDbNet = dbNet.initModel(det_model_path);
-    int retCrnn = crnn.loadModel_init(reg_model_path, keys_path);
+    int retDbNet = dbNet.initModel(mjpg_det_model_path);
+    int retCrnn = crnn.loadModel_init(mjpg_reg_model_path, mjpg_keys_path);
 
     if (retDbNet < 0 || retCrnn < 0)
     {
