@@ -1,7 +1,3 @@
-//
-// Created by cai on 2021/9/10.
-//
-
 #ifndef RKNN_MOBILENET_DEMO_LINUX_CRNN_RKNN_H
 #define RKNN_MOBILENET_DEMO_LINUX_CRNN_RKNN_H
 

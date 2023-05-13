@@ -3,9 +3,6 @@ cmake -S . -B build
 cmake --build build
 
 ## install
-
-无需安装
-
 ## run
 
 adb push 到板子上

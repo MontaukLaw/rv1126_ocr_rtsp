@@ -4,7 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/include/",
                 "${workspaceFolder}/librtsp/",
                 "${workspaceFolder}/librknn_api/include/",
                 "${workspaceFolder}/librknn_api/3rdparty/opencv/opencv-linux-armhf/include/",

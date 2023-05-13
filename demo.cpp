@@ -20,9 +20,16 @@
 #include "sample_common.h"
 #include "opencv2/opencv.hpp"
 #include "librtsp/rtsp_demo.h"
+#include "output_json.h"
 
 using namespace cv;
 using namespace std;
+
+// #define FRAME_WIDTH 1920
+// #define FRAME_HEIGHT 1080
+
+#define FRAME_WIDTH 1280
+#define FRAME_HEIGHT 720
 
 // RTSP
 static bool quit = false;
@@ -31,24 +38,49 @@ static rtsp_session_handle g_rtsp_session;
 
 static void *venc_rtsp_tidp(void *args);
 static void *rkmedia_vi_ocr_thread(void *args);
-static void *GetMediaBuffer(void *arg);
+static void *main_process(void *arg);
 
-char mediaBuffer[1920 * 1080 * 3];
+char mediaBuffer[FRAME_WIDTH * FRAME_HEIGHT * 3];
 RK_U32 Media_Buffer_size = 0;
 
 char isMBCopy = false;
-char isOk = false;
+bool ifInferFinished = false;
+Mat imageRGB = Mat(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC3);
 
 vector<StringBox> result;
 
+char *det_model_path = nullptr;
+char *reg_model_path = nullptr;
+char *keys_path = nullptr;
+
 int main(int argc, char **argv)
 {
-    RK_U32 video_width = 1920;
-    RK_U32 video_height = 1080;
+
+    if (argc < 4)
+    {
+        printf("Usage: ./demo [det_model_path] [reg_model_path] [keys_path]\n");
+        return -1;
+    }
+
+    // 获取参数1：det_model_path
+    det_model_path = argv[1];
+    // 获取参数2：reg_model_path
+    reg_model_path = argv[2];
+    // 获取参数3：keys_path
+    keys_path = argv[3];
+
+    // 打印一下
+    printf("det_model_path: %s\n", det_model_path);
+    printf("reg_model_path: %s\n", reg_model_path);
+    printf("keys_path: %s\n", keys_path);
+
+    RK_U32 video_width = FRAME_WIDTH;
+    RK_U32 video_height = FRAME_HEIGHT;
 
     RK_CHAR *pDeviceName = "rkispp_scale0";
     RK_CHAR *pcDevNode = "/dev/dri/card0";
-    char *iq_file_dir = "/etc/iqfiles";
+    // char *iq_file_dir = "/etc/iqfiles";
+    char *iq_file_dir = "/oem/etc/iqfiles";
     RK_S32 s32CamId = 0;
     RK_U32 u32BufCnt = 3;
     RK_U32 fps = 20;
@@ -111,6 +143,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    // RGA负责把数据从NV12转换成BGR
     RGA_ATTR_S stRgaAttr;
     memset(&stRgaAttr, 0, sizeof(stRgaAttr));
     stRgaAttr.bEnBufPool = RK_TRUE;
@@ -179,6 +212,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    // 绑定VI和RGA
     MPP_CHN_S stSrcChn;
     MPP_CHN_S stDestChn;
     printf("Bind VI[0:0] to RGA[0:0]....\n");
@@ -196,7 +230,7 @@ int main(int argc, char **argv)
     }
 
     pthread_create(&rkmedia_vi_ocr_tidp, NULL, rkmedia_vi_ocr_thread, NULL);
-    pthread_create(&get_media_tidp, NULL, GetMediaBuffer, NULL);
+    pthread_create(&get_media_tidp, NULL, main_process, NULL);
     pthread_create(&rtsp_tidp, NULL, venc_rtsp_tidp, NULL);
 
     printf("%s initial finish\n", __func__);
@@ -206,6 +240,7 @@ int main(int argc, char **argv)
         usleep(500000);
     }
 
+    // 清理工作
     printf("%s exit!\n", __func__);
     printf("Unbind VI[0:0] to RGA[0:0]....\n");
     stSrcChn.enModId = RK_ID_VI;
@@ -264,6 +299,7 @@ int main(int argc, char **argv)
  */
 static void *venc_rtsp_tidp(void *args)
 {
+
     pthread_detach(pthread_self());
     MEDIA_BUFFER mb = NULL;
 
@@ -284,11 +320,13 @@ static void *venc_rtsp_tidp(void *args)
     return NULL;
 }
 
-static void *GetMediaBuffer(void *arg)
+// 主线程 先拿vi数据, 复制内存
+// 拿到结果之后发去编码
+static void *main_process(void *arg)
 {
     pthread_detach(pthread_self());
 
-    printf("==> GetMediaBuffer\n");
+    printf("==> main_process\n");
 
     while (!quit)
     {
@@ -305,6 +343,7 @@ static void *GetMediaBuffer(void *arg)
 
         if (isMBCopy == false)
         {
+            // 将数据复制一份
             memcpy(&mediaBuffer[0], (uint8_t *)RK_MPI_MB_GetPtr(src_mb), RK_MPI_MB_GetSize(src_mb));
             Media_Buffer_size = RK_MPI_MB_GetSize(src_mb);
             printf("Copy Data Size is %d\n", Media_Buffer_size);
@@ -313,16 +352,23 @@ static void *GetMediaBuffer(void *arg)
 
         Mat image = Mat(ImageInfo.u32Height, ImageInfo.u32Width, CV_8UC3, RK_MPI_MB_GetPtr(src_mb));
 
+        // 打印一次就好
+        if (ifInferFinished)
+        {
+            for (auto &txt : result)
+            {
+                cout << txt.txt << endl;
+            }
+            output_json(result);
+            ifInferFinished = false;
+        }
+
         for (auto &txt : result)
         {
-            if (isOk == true)
-            {
-                cout << txt.txt << "\n"
-                     << endl;
-            }
-            drawTextBox(image, txt.txtPoint, 1);
+            drawTextBox(image, txt.txtPoint, 1, txt.centerX, txt.centerY);
         }
-        isOk = false;
+
+        // result.clear();
 
         RK_MPI_SYS_SendMediaBuffer(RK_ID_VENC, 0, src_mb);
         RK_MPI_MB_ReleaseBuffer(src_mb);
@@ -334,7 +380,7 @@ static void *GetMediaBuffer(void *arg)
 
 /*!
  * \fn     rkmedia_vi_ocr_thread
- * \brief  ocr线程
+ * \brief  ocr线程, 用于识别
  *
  * \param  [in] void *args   #
  *
@@ -343,18 +389,18 @@ static void *GetMediaBuffer(void *arg)
 static void *rkmedia_vi_ocr_thread(void *args)
 {
     pthread_detach(pthread_self());
-    const char *db_model_path = "./det_new.rknn";
-    const char *crnn_model_path = "./repvgg_s.rknn";
-    const char *key_path = "./dict_text.txt";
-    const char *img_path = "./in_img.jpg";
+    // const char *db_model_path = "./det_new.rknn";
+    // const char *crnn_model_path = "./repvgg_s.rknn";
+    // const char *key_path = "./dict_text.txt";
+    // const char *img_path = "./in_img.jpg";
 
     DBNet dbNet;
     CRNN crnn;
 
     printf("==> rkmedia_vi_ocr_thread\n");
 
-    int retDbNet = dbNet.initModel(db_model_path);
-    int retCrnn = crnn.loadModel_init(crnn_model_path, key_path);
+    int retDbNet = dbNet.initModel(det_model_path);
+    int retCrnn = crnn.loadModel_init(reg_model_path, keys_path);
 
     if (retDbNet < 0 || retCrnn < 0)
     {
@@ -362,12 +408,15 @@ static void *rkmedia_vi_ocr_thread(void *args)
     }
 
     printf("==> loadModel finished!\n");
-    MB_IMAGE_INFO_S stImageInfo = {1920, 1080, 1920, 1080, IMAGE_TYPE_BGR888};
+    // MB_IMAGE_INFO_S stImageInfo = {1920, 1080, 1920, 1080, IMAGE_TYPE_BGR888};
+    MB_IMAGE_INFO_S stImageInfo = {FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH, FRAME_HEIGHT, IMAGE_TYPE_BGR888};
 
     while (!quit)
     {
         if (isMBCopy == true)
         {
+
+            // ifInferFinished = false;
             MEDIA_BUFFER mb = RK_MPI_MB_CreateImageBuffer(&stImageInfo, RK_TRUE, MB_FLAG_NOCACHED);
             if (!mb)
             {
@@ -380,10 +429,13 @@ static void *rkmedia_vi_ocr_thread(void *args)
             RK_MPI_MB_SetSize(mb, Media_Buffer_size);
 
 #if 1
-            Mat image1 = Mat(1080, 1920, CV_8UC3, RK_MPI_MB_GetPtr(mb));
-            Mat image;
-            cv::cvtColor(image1, image, CV_BGR2RGB);
-// cv::imwrite("in_img.jpg",image);
+            // 直接将获取的码流, 转换为Mat, mb就是直接RGA获取的数据备份
+            Mat imageOrigin = Mat(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC3, RK_MPI_MB_GetPtr(mb));
+
+            // 把BGR转为RGB
+            cv::cvtColor(imageOrigin, imageRGB, CV_BGR2RGB);
+
+            // cv::imwrite("in_img.jpg",image);
 #else
             Mat image = imread(img_path);
             if (image.empty())
@@ -392,33 +444,32 @@ static void *rkmedia_vi_ocr_thread(void *args)
                 return NULL;
             }
 #endif
-#if 1
+            // 记录时间
             double time0 = static_cast<double>(getTickCount());
 
-            vector<ImgBox> crop_img;
-            crop_img = dbNet.getTextImages(image);
-            time0 = ((double)getTickCount() - time0) / getTickFrequency();
-            printf("Test run time is: %f\n", time0);
+            // 获取文本框列表
+            vector<ImgBox> crop_imgs;
+            crop_imgs = dbNet.getTextImages(imageRGB);
 
+            printf("Found %d text boxes\n", crop_imgs.size());
+
+            time0 = ((double)getTickCount() - time0) / getTickFrequency();
+            printf("Detect time spend: %.2f\n", time0 * 1000);
             double time1 = static_cast<double>(getTickCount());
 
-            result = crnn.inference(crop_img);
+            // 启动crnn模型, 识别文本
+            result = crnn.inference(crop_imgs);
 
             time1 = ((double)getTickCount() - time1) / getTickFrequency();
-            printf("Identify the running time as: %f\n", time1);
-            printf("Total running time is: %f\n", time0 + time1);
+            printf("Rec used: %.2f\n", time1 * 1000);
+            printf("Detect + Rec cost: %.2f ms \n", (time0 + time1) * 1000);
 
-            // for (auto &txt : result) {
-            //     cout << txt.txt << "\n" << endl;
-            //     drawTextBox(image,txt.txtPoint,1);
-            // }
-
-            isOk = true;
+            ifInferFinished = true;
 
             // cv::imwrite("out_img.jpg",image);
-            image.release();
+            // 释放image
+            imageOrigin.release();
 
-#endif
             isMBCopy = false;
 
             RK_MPI_MB_ReleaseBuffer(mb);

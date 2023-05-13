@@ -1,7 +1,3 @@
-//
-// Created by cai on 2021/9/10.
-//
-
 #include "Crnn.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,46 +7,54 @@
 #include <fstream>
 #include <iostream>
 
-
-template<class ForwardIterator>
-inline static size_t argmax(ForwardIterator first, ForwardIterator last) {
+template <class ForwardIterator>
+inline static size_t argmax(ForwardIterator first, ForwardIterator last)
+{
     return std::distance(first, std::max_element(first, last));
 }
 
-CRNN::~CRNN(){
+CRNN::~CRNN()
+{
     clear();
 }
 
-int CRNN::loadModel_init(const char *filename,const char *keys_path) {                  // ³õÊ¼»¯Ä£ĞÍ
+int CRNN::loadModel_init(const char *filename, const char *keys_path)
+{
 
-    std::ifstream key(keys_path);                                          // ¼ÓÔØ×Öµä
+    std::ifstream key(keys_path);
     std::string line;
-    if(key){
-        while (getline(key,line)){
+    if (key)
+    {
+        while (getline(key, line))
+        {
             keys.push_back(line);
         }
     }
 
     FILE *fp = fopen(filename, "rb");
-    if (fp == nullptr) {
+    if (fp == nullptr)
+    {
         printf("fopen %s fail!\n", filename);
         return -1;
     }
-    fseek(fp, 0, SEEK_END);                                // ÎÄ¼şÖ¸ÕëÖ¸µ½ÎÄ¼ş½áÎ²
+    fseek(fp, 0, SEEK_END);
     size_t model_len = ftell(fp);
     unsigned char *model = (unsigned char *)malloc(model_len);
-    fseek(fp, 0, SEEK_SET);                               // Ö¸Ïò¿ªÍ·
-    if (model_len != fread(model, 1, model_len, fp)) {
+    fseek(fp, 0, SEEK_SET);
+    if (model_len != fread(model, 1, model_len, fp))
+    {
         printf("fread %s fail!\n", filename);
         free(model);
         model = nullptr;
         return -2;
     }
-    if (fp) {
+    if (fp)
+    {
         fclose(fp);
     }
     int ret = rknn_init(&ctx, model, model_len, 0);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         free(model);
         model = nullptr;
         printf("rknn_init fail! ret=%d\n", ret);
@@ -59,9 +63,10 @@ int CRNN::loadModel_init(const char *filename,const char *keys_path) {          
     free(model);
     model = nullptr;
 
-    // Get Model Input Output Info   »ñÈ¡Ä£ĞÍÊäÈëĞÅÏ¢
-    ret = rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &io_num, sizeof(io_num));       // ²éÑ¯Ä£ĞÍÓëSDKµÄÏà¹ØĞÅÏ¢
-    if (ret != RKNN_SUCC) {
+    // Get Model Input Output Info
+    ret = rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &io_num, sizeof(io_num));
+    if (ret != RKNN_SUCC)
+    {
         printf("rknn_query fail! ret=%d\n", ret);
         return -1;
     }
@@ -69,10 +74,12 @@ int CRNN::loadModel_init(const char *filename,const char *keys_path) {          
 
     rknn_tensor_attr input_attrs[io_num.n_input];
     memset(input_attrs, 0, sizeof(input_attrs));
-    for (int i = 0; i < io_num.n_input; i++) {
+    for (int i = 0; i < io_num.n_input; i++)
+    {
         input_attrs[i].index = i;
         ret = rknn_query(ctx, RKNN_QUERY_INPUT_ATTR, &(input_attrs[i]), sizeof(rknn_tensor_attr));
-        if (ret != RKNN_SUCC) {
+        if (ret != RKNN_SUCC)
+        {
             printf("rknn_query fail! ret=%d\n", ret);
             return -1;
         }
@@ -80,10 +87,12 @@ int CRNN::loadModel_init(const char *filename,const char *keys_path) {          
 
     rknn_tensor_attr output_attrs[io_num.n_output];
     memset(output_attrs, 0, sizeof(output_attrs));
-    for (int i = 0; i < io_num.n_output; i++) {
+    for (int i = 0; i < io_num.n_output; i++)
+    {
         output_attrs[i].index = i;
         ret = rknn_query(ctx, RKNN_QUERY_OUTPUT_ATTR, &(output_attrs[i]), sizeof(rknn_tensor_attr));
-        if (ret != RKNN_SUCC) {
+        if (ret != RKNN_SUCC)
+        {
             printf("rknn_query fail! ret=%d\n", ret);
             return -1;
         }
@@ -93,35 +102,42 @@ int CRNN::loadModel_init(const char *filename,const char *keys_path) {          
     {
         input_width = input_attrs[0].dims[0];
         input_height = input_attrs[0].dims[1];
-    } else
+    }
+    else
     {
         input_width = input_attrs[0].dims[1];
         input_height = input_attrs[0].dims[2];
     }
 
-    printf("model input height=%d ,width=%d\n",input_height,input_width);
+    printf("model input height=%d ,width=%d\n", input_height, input_width);
 
     return 0;
 }
 
-void CRNN::clear() {               // Ä£ĞÍÏú»Ù
-    if(ctx >=0){
+void CRNN::clear()
+{
+    if (ctx >= 0)
+    {
         rknn_destroy(ctx);
     }
 }
 
-
-std::vector<StringBox> CRNN::inference(std::vector<ImgBox> crop_img) {             // Ä£ĞÍÍÆÀí
+// CRNN æ–‡å­—è¯†åˆ«æ¨ç†è¿‡ç¨‹
+std::vector<StringBox> CRNN::inference(std::vector<ImgBox> crop_img)
+{
     std::vector<StringBox> result;
     int dstWidth = input_width;
 
-    for(auto &img : crop_img){
-        //¼ÇÂ¼ÆğÊ¼Ê±¼ä
-        double time0 = static_cast<double>(getTickCount());                           // ¼ÇÂ¼¿ªÊ¼Ê±¼ä
-        cv::Mat orig_img = img.img.clone();
-        // Set Input Data   ÊäÈëÉèÖÃ
+    int counter = 0;
 
-        cv::Mat bgr = crnn_narrow_32_pad(img.img,dstWidth);;
+    for (auto &img : crop_img)
+    {
+        double time0 = static_cast<double>(getTickCount());
+        cv::Mat orig_img = img.img.clone();
+        // Set Input Data
+
+        cv::Mat bgr = crnn_narrow_32_pad(img.img, dstWidth);
+        ;
         rknn_input inputs[1];
         memset(inputs, 0, sizeof(inputs));
         inputs[0].index = 0;
@@ -130,55 +146,58 @@ std::vector<StringBox> CRNN::inference(std::vector<ImgBox> crop_img) {          
         inputs[0].fmt = RKNN_TENSOR_NHWC;
         inputs[0].buf = bgr.data;
 
-        int ret = rknn_inputs_set(ctx, io_num.n_input, inputs);      // ÉèÖÃÄ£ĞÍµÄÊäÈëÊı¾İ
-        if (ret < 0) {
+        int ret = rknn_inputs_set(ctx, io_num.n_input, inputs);
+        if (ret < 0)
+        {
             printf("rknn_input_set fail! ret=%d\n", ret);
-//        return -1;
         }
 
-        ret = rknn_run(ctx, nullptr);                         // Ö´ĞĞÄ£ĞÍµÄÍÆÀí
-        if (ret < 0) {
+        ret = rknn_run(ctx, nullptr);
+        if (ret < 0)
+        {
             printf("rknn_run fail! ret=%d\n", ret);
-//        return -1;
         }
 
-        // Get Output     »ñÈ¡Êä³ö
+        // Get Output
         rknn_output outputs[1];
         memset(outputs, 0, sizeof(outputs));
         outputs[0].want_float = 1;
 
-        ret = rknn_outputs_get(ctx, 1, outputs, NULL);                     // »ñÈ¡Ä£ĞÍµÄÊä³öÍÆÀí
-        if (ret < 0) {
+        ret = rknn_outputs_get(ctx, 1, outputs, NULL);
+        if (ret < 0)
+        {
             printf("rknn_outputs_get fail! ret=%d\n", ret);
-//        return -1;
         }
 
-        float *buffer = (float *) outputs[0].buf;
+        float *buffer = (float *)outputs[0].buf;
 
         int keySize = keys.size();
-        vector<float> outputData(buffer, buffer + (input_width/4) * (keySize+1));
+        vector<float> outputData(buffer, buffer + (input_width / 4) * (keySize + 1));
 
         int lastIndex = 0;
         int maxIndex;
         std::string strRes;
 
-        int num = ceil(int(orig_img.cols*(32.0/orig_img.rows))/4);                         //  Ö»±éÀúÎ´Ìî³ä²¿·Ö
-        num = std::min(num,(bgr.cols/4));
+        int num = ceil(int(orig_img.cols * (32.0 / orig_img.rows)) / 4);
+        num = std::min(num, (bgr.cols / 4));
 
-        for (int n = 0;n < num; n++){
-            maxIndex = int(argmax(&outputData[n * (keySize+1)],&outputData[(n+1)*(keySize+1)]));
-            if (maxIndex > 0 && maxIndex < keySize && (!(n >0 && maxIndex == lastIndex))){
-                strRes.append(keys[maxIndex-1]);
+        for (int n = 0; n < num; n++)
+        {
+            maxIndex = int(argmax(&outputData[n * (keySize + 1)], &outputData[(n + 1) * (keySize + 1)]));
+            if (maxIndex > 0 && maxIndex < keySize && (!(n > 0 && maxIndex == lastIndex)))
+            {
+                strRes.append(keys[maxIndex - 1]);
             }
             lastIndex = maxIndex;
         }
 
-        result.emplace_back(StringBox{strRes,img.imgPoint});
-        //¼ÆËãÔËĞĞÊ±¼ä²¢Êä³ö
-        time0 = ((double) getTickCount() - time0) / getTickFrequency();            // ½áÊøÊ±¼ä-¿ªÊ¼Ê±¼ä£¬²¢»¯ÎªÃëµ¥Î»
-        printf("The single identification time is: %lf\nÃë", time0);                       // Êä³öÔËĞĞÊ±¼ä
+        result.emplace_back(StringBox{strRes, img.imgPoint, img.centerX, img.centerY});
+        time0 = ((double)getTickCount() - time0) / getTickFrequency();
+        // å¦‚æœéœ€è¦ç»Ÿè®¡æ¯æ¬¡æ–‡å­—è¯†åˆ«çš„æ—¶é—´ï¼Œå¯ä»¥æ‰“å¼€ä¸‹é¢çš„æ³¨é‡Š
+        // printf("The single identification time is: %lf\n", time0);
+        counter++;
 
-        rknn_outputs_release(ctx, 1, outputs);// ÊÍ·Årknn_output¶ÔÏó
+        rknn_outputs_release(ctx, 1, outputs);
     }
 
     return result;
