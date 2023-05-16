@@ -31,6 +31,7 @@ using namespace std;
 using namespace cv;
 #define MODEL_WIDTH 640
 #define MODEL_HEIGHT 640
+#define MIN_INPU_STREAM_HEIGHT 720
 
 static Mat originFrame;
 static Mat detectFrame;
@@ -44,6 +45,7 @@ pthread_t detectThread;
 char *mjpg_det_model_path = nullptr;
 char *mjpg_reg_model_path = nullptr;
 char *mjpg_keys_path = nullptr;
+char *stream_address = nullptr;
 Mat frameResized;
 int startX = 0;
 int startY = 0;
@@ -119,9 +121,9 @@ int main__(int argc, char **argv)
 int main(int argc, char **argv)
 {
 
-    if (argc < 4)
+    if (argc < 5)
     {
-        printf("Usage: ./demo [mjpg_det_model_path] [mjpg_reg_model_path] [mjpg_keys_path]\n");
+        printf("Usage: ./demo [mjpg_det_model_path] [mjpg_reg_model_path] [mjpg_keys_path] [stream_address]\n");
         return -1;
     }
     // 获取参数1：det_model_path
@@ -130,11 +132,14 @@ int main(int argc, char **argv)
     mjpg_reg_model_path = argv[2];
     // 获取参数3：mjpg_keys_path
     mjpg_keys_path = argv[3];
+    // 获取参数4：stream_address
+    stream_address = argv[4];
 
     // 打印一下
     printf("mjpg_det_model_path: %s\n", mjpg_det_model_path);
     printf("mjpg_reg_model_path: %s\n", mjpg_reg_model_path);
     printf("mjpg_keys_path: %s\n", mjpg_keys_path);
+    printf("stream_address: %s\n", stream_address);
 
     // 初始化模型
     init_models();
@@ -153,7 +158,7 @@ int main(int argc, char **argv)
     // printf("models loaded!\n");
 
     int res;
-    VideoCapture capture("http://192.168.4.1:81/stream");
+    VideoCapture capture(stream_address);
     // 判断视频是否读取成功，返回true表示成功
     if (!capture.isOpened())
     {
@@ -165,6 +170,12 @@ int main(int argc, char **argv)
     int frame_width = capture.get(CAP_PROP_FRAME_WIDTH);
     int frame_height = capture.get(CAP_PROP_FRAME_HEIGHT);
     printf("frame_width = %d, frame_height = %d\n", frame_width, frame_height);
+
+    if (frame_height < MIN_INPU_STREAM_HEIGHT)
+    {
+        printf("frame_height < MIN_INPU_STREAM_HEIGHT\n");
+        return 0;
+    }
 
     detectFrame = Mat(frame_height, frame_width, CV_8UC3);
     originFrame = Mat(frame_height, frame_width, CV_8UC3);
