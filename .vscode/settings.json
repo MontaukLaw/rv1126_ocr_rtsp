@@ -59,5 +59,9 @@
         "hash_map": "cpp",
         "hash_set": "cpp",
         "unordered_set": "cpp"
-    }
+    },
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "python.formatting.provider": "none"
 }

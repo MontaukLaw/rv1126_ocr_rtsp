@@ -28,6 +28,7 @@ using namespace std;
 extern DBNet dbNet;
 extern CRNN crnn;
 extern Mat frameResized;
+extern bool ifSaveImage;
 
 vector<StringBox> result;
 
@@ -58,12 +59,13 @@ static void write_jpg(vector<ImgBox> crop_imgs)
     // 写入jpeg
     imwrite("detect.jpg", outputFrame);
 }
+
 void detect_process()
 {
     // 记录时间
     double time0 = static_cast<double>(getTickCount());
 
-    print_detectFrame_pixel_0(frameResized);
+    // print_detectFrame_pixel_0(frameResized);
 
     // 获取文本框列表
     vector<ImgBox> crop_imgs;
@@ -74,7 +76,10 @@ void detect_process()
     printf("Detect spend: %.2fms\n", time0 * 1000);
 
     // 为了方便观察，将检测结果写入图片
-    write_jpg(crop_imgs);
+    if (ifSaveImage)
+    {
+        write_jpg(crop_imgs);
+    }
 
     double time1 = static_cast<double>(getTickCount());
     // 启动crnn模型, 识别文本

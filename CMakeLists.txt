@@ -80,10 +80,11 @@ add_executable(mjpg_ocr mjpg_ocr.cpp src/output_json.cpp
               src/clipper.cpp src/Crnn.cpp 
               src/DbNet.cpp src/OcrUtils.cpp
               src/detect_service.cpp src/models.cpp
+              src/curl_get_file.cpp
               )
 
 include_directories(mjpg_ocr ${FFMpeg_INCLUDE_DIRS} ${OPENCV_INCLUDE})
 
 target_link_libraries(mjpg_ocr ${OPENCV_LIBS} ${RKNN_LIBS} 
                        pthread dl  librtsp.a json-c
-                       ${FFMpeg_LIBS} z)
+                       ${FFMpeg_LIBS} z curl)
