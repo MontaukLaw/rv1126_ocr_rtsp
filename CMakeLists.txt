@@ -17,7 +17,8 @@ set(RKNN_LIBS easymedia rga rkaiq rknn_api sample_common_isp)
 link_directories(include lib)
 link_directories(include ./librtsp)
 message(STATUS "OPENCV_LIBS ${OPENCV_LIBS}")
-	
+
+include_directories(/usr/include/)
 include_directories(${SYSROOT})
 include_directories(${SYSROOT}/rga)
 include_directories(${SYSROOT}/easymedia)
@@ -27,11 +28,13 @@ include_directories(${SYSROOT}/rkaiq/algos)
 include_directories(${SYSROOT}/rkaiq/common)
 include_directories(${SYSROOT}/rkaiq/iq_parser)
 include_directories(${SYSROOT}/rknn)
+include_directories(${SYSROOT}/X11)
 include_directories(.)
 include_directories(./include)
 include_directories(./librknn_api/3rdparty)
 include_directories(./librknn_api/include)
 include_directories(./librtsp)
+include_directories(./include/rkmedia/rkmeida/)
 
 add_definitions(-DRKAIQ)
 
@@ -75,16 +78,22 @@ add_executable(rknn_ocr_rtsp demo.cpp src/output_json.cpp
 
 target_link_libraries(rknn_ocr_rtsp ${OPENCV_LIBS} ${RKNN_LIBS} pthread dl librtsp.a json-c)
 
+# ******************** gflags **************************
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib) 
+
 # ******************** mjpeg **************************
 add_executable(mjpg_ocr mjpg_ocr.cpp src/output_json.cpp
               src/clipper.cpp src/Crnn.cpp 
               src/DbNet.cpp src/OcrUtils.cpp
               src/detect_service.cpp src/models.cpp
               src/curl_get_file.cpp
+              src/rknn_funcs.cpp
+              src/rknn_model.cpp
+              src/yolo.cc
               )
 
 include_directories(mjpg_ocr ${FFMpeg_INCLUDE_DIRS} ${OPENCV_INCLUDE})
 
 target_link_libraries(mjpg_ocr ${OPENCV_LIBS} ${RKNN_LIBS} 
-                       pthread dl  librtsp.a json-c
-                       ${FFMpeg_LIBS} z curl)
+                       pthread dl  librtsp.a json-c drm
+                       ${FFMpeg_LIBS} z curl rknn_api gflags)

@@ -114,13 +114,17 @@ std::vector<TextBox> findRsBoxes(const cv::Mat &src, const cv::Mat &fMapMat, con
         if (minSideLen < minArea)
             continue;
         float score = boxScoreFast(fMapMat, contours[i]);
+        printf("score is: %f\n", score);
         if (score < boxScoreThresh)
+        {
             continue;
-        //---use clipper start---
+        }
+
+        // ---use clipper start---
         std::vector<cv::Point> clipBox = unClip(minBox, perimeter, unClipRatio);
         std::vector<cv::Point> clipMinBox = getMinBoxes(clipBox, minSideLen, perimeter);
 
-        //        ---use clipper end---
+        // ---use clipper end---
 
         if (minSideLen < minArea + 2)
             continue;

@@ -29,7 +29,7 @@ private:
     int input_width{} ;
     int input_height{};
 
-    const float boxScoreThresh = 0.6f;
+    const float boxScoreThresh = 0.2f;
     const float boxThresh = 0.3f;
     const float unClipRatio = 2.0f;
 };

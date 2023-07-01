@@ -27,9 +27,21 @@
 #include "models.h"
 #include "detect_service.h"
 #include "curl_get_file.h"
+#include "rknn_model.h"
+
+#include "gflags/gflags.h"
+
+DEFINE_bool(if_need_rotate, true, "if_need_rotate");
+DEFINE_bool(if_save_dect_img, false, "if_save_dect_img");
+DEFINE_string(det_model_path, "static_model_0625.rknn", "det_model_path");
+DEFINE_string(reg_model_path, "repvgg_s.rknn", "reg_model_path");
+DEFINE_string(yolo_model_path, "cell_screen_yolo.rknn", "yolo_model_path");
+DEFINE_string(dict_file_path, "dict_text.txt", "dict_file_path");
+DEFINE_string(stream_address, "http://192.168.0.119/1685697887.jpg", "stream_address");
 
 using namespace std;
 using namespace cv;
+using namespace gflags;
 
 #define MODEL_WIDTH 640
 #define MODEL_HEIGHT 640
@@ -44,19 +56,22 @@ bool dataReady = false;
 
 pthread_t detectThread;
 
+#if 0
 char *mjpg_det_model_path = nullptr;
 char *mjpg_reg_model_path = nullptr;
 char *mjpg_keys_path = nullptr;
 char *stream_address = nullptr;
 char *cw_ratate = nullptr;
 char *create_test_image = nullptr;
+bool ifRotate = false;
+bool ifSaveImage = false;
+#endif
+
 Mat frameResized;
 int startX = 0;
 int startY = 0;
 int endX = 0;
 int endY = 0;
-bool ifRotate = false;
-bool ifSaveImage = false;
 
 void *detect_process_thread(void *arg)
 {
@@ -69,7 +84,7 @@ void *detect_process_thread(void *arg)
             usleep(1000);
         }
 
-        printf("start detection\n");
+        // printf("start detection\n");
         // sleep(1);  // for test
         // 把BGR转为RGB
         cv::cvtColor(detectFrame, frameRGB, CV_BGR2RGB);
@@ -77,7 +92,7 @@ void *detect_process_thread(void *arg)
         // 然后剪裁取出640*640
         frameResized = frameRGB(Range(startY, endY), Range(startX, endX));
 
-        if (ifRotate)
+        if (FLAGS_if_need_rotate)
         {
             cv::rotate(frameResized, frameResized, ROTATE_90_CLOCKWISE);
             // frameResized =
@@ -88,13 +103,13 @@ void *detect_process_thread(void *arg)
         if (frameResized.data != nullptr)
         {
             // sleep(1);
-            detect_process();
+            imwrite("input_corp.jpg", frameResized);
+            // 先做 yolo
+            run_model(frameResized);
+            yolo_det(frameResized.data);
+            // detect_process();
         }
 
-        if (ifSaveImage)
-        {
-            // imwrite("test.jpg", frameResized);
-        }
         // imwrite("test.jpg", frameRGB);
         // sleep(1);  // for test
         // 检测结束
@@ -110,45 +125,62 @@ void *detect_process_thread(void *arg)
 int main(int argc, char **argv)
 {
 
+    ParseCommandLineFlags(&argc, &argv, true);
+    // if (FLAGS_languages.find("english") != string::npos)
+    //     HandleEnglish();
+    // printf("det_model_path: %s \n", FLAGS_det_model_path);
+    // printf("reg_model_path: %s \n", FLAGS_reg_model_path);
+    // printf("yolo_model_path: %s \n", FLAGS_yolo_model_path);
+    // printf("dict_file_path: %s \n", FLAGS_dict_file_path);
+    // printf("if_need_rotate: %d \n", FLAGS_if_need_rotate);
+    // printf("if_save_dect_img: %d \n", FLAGS_if_save_dect_img);
+
+    std::cout << "det_model_path: " << FLAGS_det_model_path << std::endl;
+    std::cout << "reg_model_path: " << FLAGS_reg_model_path << std::endl;
+    std::cout << "yolo_model_path: " << FLAGS_yolo_model_path << std::endl;
+    std::cout << "dict_file_path: " << FLAGS_dict_file_path << std::endl;
+    std::cout << "if_need_rotate: " << FLAGS_if_need_rotate << std::endl;
+    std::cout << "if_save_dect_img: " << FLAGS_if_save_dect_img << std::endl;
+
     int res;
-    if (argc < 5)
-    {
-        printf("Usage: ./demo [mjpg_det_model_path] [mjpg_reg_model_path] [mjpg_keys_path] [stream_address]\n");
-        return -1;
-    }
-    // 获取参数1：det_model_path
-    mjpg_det_model_path = argv[1];
-    // 获取参数2：mjpg_reg_model_path
-    mjpg_reg_model_path = argv[2];
-    // 获取参数3：mjpg_keys_path
-    mjpg_keys_path = argv[3];
-    // 获取参数4：stream_address
-    stream_address = argv[4];
-    // 看是否旋转
-    cw_ratate = argv[5];
-    // 是否需要保存测试用图片
-    create_test_image = argv[6];
 
-    if (cw_ratate)
-    {
-        if (strcmp(cw_ratate, "rotate") == 0)
-        {
-            ifRotate = true;
-            printf("rotate cw 90\n");
-        }
-    }
+#if 0
+    // // 获取参数1：det_model_path
+    // mjpg_det_model_path = argv[1];
+    // // 获取参数2：mjpg_reg_model_path
+    // mjpg_reg_model_path = argv[2];
+    // // 获取参数3：mjpg_keys_path
+    // mjpg_keys_path = argv[3];
+    // // 获取参数4：stream_address
+    // stream_address = argv[4];
+    // // 看是否旋转
+    // cw_ratate = argv[5];
+    // // 是否需要保存测试用图片
+    // create_test_image = argv[6];
 
-    if (create_test_image)
-    {
-        if (strcmp(create_test_image, "save_test") == 0)
-        {
-            ifSaveImage = true;
-            printf("save test image\n");
-        }
-    }
+    // if (cw_ratate)
+    // {
+    //     if (strcmp(cw_ratate, "rotate") == 0)
+    //     {
+    //         ifRotate = true;
+    //         printf("rotate cw 90\n");
+    //     }
+    // }
+
+    // if (create_test_image)
+    // {
+    //     if (strcmp(create_test_image, "save_test") == 0)
+    //     {
+    //         ifSaveImage = true;
+    //         printf("save test image\n");
+    //     }
+    // }
+#endif
+
+    init_yolo_model();
 
     // 初始化模型
-    init_models();
+    // init_models();
     // stream_address = "http://192.168.0.117/capture";
 
     printf("==> rkmedia_vi_ocr_thread\n");
@@ -162,8 +194,8 @@ int main(int argc, char **argv)
     //     std::cout << "无法读取视频" << std::endl;
     //     return -1;
     // }
-    printf("stream add:%s \n", stream_address);
-    detectFrame = get_image_online(stream_address);
+    printf("stream add:%s \n", FLAGS_stream_address);
+    detectFrame = get_image_online(FLAGS_stream_address);
     if (detectFrame.empty())
     {
         printf("get image online failed\n");
@@ -227,7 +259,8 @@ int main(int argc, char **argv)
         // capture = new VideoCapture(stream_address_buf);
 
         // Capture frame-by-frame
-        originFrame = get_image_online(stream_address);
+        originFrame = get_image_online(FLAGS_stream_address);
+        // originFrame = imread("1687224690.jpg");
         // cap >> originFrame;
         if (originFrame.empty())
         {

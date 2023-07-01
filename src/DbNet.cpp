@@ -123,7 +123,7 @@ std::vector<ImgBox> DBNet::getTextImages(cv::Mat &src)
     if (ret < 0)
     {
         printf("rknn_input_set fail! ret=%d\n", ret);
-        //        return -1;
+        // return -1;
     }
 
     ret = rknn_run(ctx, nullptr); 
@@ -142,7 +142,7 @@ std::vector<ImgBox> DBNet::getTextImages(cv::Mat &src)
     if (ret < 0)
     {
         printf("rknn_outputs_get fail! ret=%d\n", ret);
-        //        return -1;
+        // return -1;
     }
 
     cv::Mat fMapMat(img.rows, img.cols, CV_32FC1);
